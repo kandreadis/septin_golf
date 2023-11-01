@@ -9,7 +9,7 @@ def find_tif_files(folder_dir):
     all_files = os.listdir(sys.path[1] + "/" + folder_dir)
     tif_files = list(filter(lambda f: f.endswith('.tif'), all_files))
     num_images = len(tif_files)
-    print("Found {} tif file(s)".format(num_images))
+    print("Found {} tif file(s) in {}!".format(num_images, folder_dir))
 
     images = []
 
@@ -31,14 +31,21 @@ def find_tif_files(folder_dir):
             num_z_slices = 1
 
         image_stack = np.asarray(image)
-
+        if unit == "CENTIMETER":
+            xscale *= 10000
+            yscale *= 10000
+            unit = "$\mu$m"
+        if unit == "NONE":
+            unit = "$\mu$m"
         image_extraction = {
             "path": tif_image_path,
             "num_z_slices": num_z_slices,
             "xscale": xscale,
             "yscale": yscale,
             "unit": unit,
-            "image_stack": image_stack
+            "image_stack": image_stack,
+            "folder_path": folder_dir,
+            "full_path": folder_dir + "/" + tif_image_path
         }
         images.append(image_extraction)
     return images
