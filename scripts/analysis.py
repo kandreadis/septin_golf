@@ -1,3 +1,6 @@
+import os
+import sys
+
 import cv2
 import numpy as np
 import pandas as pd
@@ -5,11 +8,11 @@ from scipy.signal import butter, filtfilt, find_peaks
 
 from scripts.image_import import find_tif_files
 from scripts.visualisation import plot_angular_profile, plot_filtered_signal, plot_grid_profile, plot_spacing_hist, \
-    plot_extracted_image
+    plot_extracted_image, plot_batch_analysis
 
 
 def threshold_img(img, thresh_low):
-    print("Tresholding raw image...")
+    print(" + Tresholding raw image...")
     _, img_thres = cv2.threshold(img, thresh_low, 255, cv2.THRESH_BINARY)
     return img_thres
 
@@ -67,7 +70,7 @@ def smooth_filter(array, spacing, low_freq, high_freq):
 
 
 def analyse_angular_peaks(array, cutoff, radius, xscale, yscale):
-    print("Detecting spikes...")
+    print(" + Detecting spikes...")
     scale = np.sqrt(xscale ** 2 + yscale ** 2)
     peaks_locations, _ = find_peaks(array, height=cutoff)
     try:
@@ -78,7 +81,7 @@ def analyse_angular_peaks(array, cutoff, radius, xscale, yscale):
 
 
 def angular_spacing(img, img_params):
-    print("Unfolding golfball...")
+    print(" + Unfolding golfball...")
     img = threshold_img(img=img, thresh_low=3)
     polar_grid_specs = {
         "center_xy": [img.shape[0] // 2, img.shape[1] // 2],
@@ -104,7 +107,7 @@ def angular_spacing(img, img_params):
 
 
 def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
-    print("Detecting spikes in grid...")
+    print(" + Detecting spikes in grid...")
     # peaks_locations, _ = find_peaks(matrix.flatten(), height=255)
     # row_indices, col_indices = np.unravel_index(peaks_locations, matrix.shape)
     # peaks_locations = findpeaks(method="mask").fit(matrix)["Xdetect"].astype(int)
@@ -117,7 +120,11 @@ def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
     for contour in contours:
         area = cv2.contourArea(contour)
         if 20 < area < 1500:
-            x, y = contour.mean(axis=0)[0]
+            try:
+                x, y = contour.mean(axis=0)[0]
+            except:
+                x, y = None, None
+                print(" + Could not find any spikes...")
             peak_indices_x.append(int(x))
             peak_indices_y.append(int(y))
     peak_indices_x = np.asarray(peak_indices_x)
@@ -142,7 +149,7 @@ def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
 
 
 def grid_spacing(img, img_params):
-    print("Cropping golfball...")
+    print(" + Cropping golfball...")
     img = blur_img(img=img, gaussian_kernel_size=3)
     img = threshold_img(img=img, thresh_low=5)
     radius_cutoff = 0.75 * (img.shape[0] // 2)
@@ -155,35 +162,70 @@ def grid_spacing(img, img_params):
 
 
 def run(analysis_type):
-    tif_files = find_tif_files("data/" + analysis_type)
-    for i in range(len(tif_files)):
-        img_params = tif_files[i]
-        img_raw = img_params["image_stack"]
-        plot_extracted_image(img_params, analysis_type + "/" + img_params["path"])
-        print("================")
-        print("Analysing {}".format(img_params["path"]))
-        if analysis_type == "golf":
-            peaks_spacing = grid_spacing(img_raw, img_params)
-        elif analysis_type == "spikes":
-            peaks_spacing = angular_spacing(img_raw, img_params)
-        else:
-            peaks_spacing = None
-        img_file_path = img_params["folder_path"] + "/" + img_params["path"]
-        result = {
-            "path": img_file_path,
-            "type": analysis_type,
-            "spacing": peaks_spacing,
-            "unit": img_params["unit"]
+    if analysis_type == "visualise_batch_results":
+        golf_folder_dir = "result/{}/".format("golf")
+        golf_dir = os.listdir(sys.path[1] + "/" + golf_folder_dir)
+        golf_csv_files = list(filter(lambda f: f.endswith('.csv'), golf_dir))
+        golf_csv_files = ["result/golf/" + dir for dir in golf_csv_files]
+        spikes_folder_dir = "result/{}/".format("spikes")
+        spikes_dir = os.listdir(sys.path[1] + "/" + spikes_folder_dir)
+        spikes_csv_files = list(filter(lambda f: f.endswith('.csv'), spikes_dir))
+        spikes_csv_files = ["result/spikes/" + dir for dir in spikes_csv_files]
+        all_csv_files = spikes_csv_files + golf_csv_files
+        num_images = len(all_csv_files)
+        print("==== Found {} .csv file(s)! ====".format(num_images))
+        result_dict = {
+            "path": [],
+            "type": [],
+            "spacing": [],
+            "unit": []
         }
+        for csv_file in all_csv_files:
+            csv_content = pd.read_csv(sys.path[1] + "/" + csv_file, header=0).to_dict(orient="records")
+            if len(csv_content) > 0:
+                for spacing in csv_content:
+                    result_dict["path"].append(spacing["path"])
+                    result_dict["type"].append(spacing["type"])
+                    result_dict["spacing"].append(spacing["spacing"])
+                    result_dict["unit"].append(spacing["unit"])
         try:
-            avg_spacing = np.average(peaks_spacing)
-            avg_spacing = round(avg_spacing, 3)
+            plot_batch_analysis(data=result_dict)
         except:
-            avg_spacing = "UNKNOWN"
-        plot_spacing_hist(peaks_spacing, img_params["unit"],
-                          "average ca. {} {}".format(avg_spacing, img_params["unit"]),
-                          path=analysis_type + "/" + img_params["path"])
-        np.set_printoptions(threshold=np.inf)
-        df = pd.DataFrame.from_dict(result, orient="columns")
-        df.to_csv("result/" + analysis_type + "/" + img_params["path"] + "_analysis.csv", index=False)
-        print("Saved .csv, analysis complete!")
+            pass
+    else:
+        tif_files = find_tif_files("data/" + analysis_type)
+        for i in range(len(tif_files)):
+            img_params = tif_files[i]
+            img_raw = img_params["image_stack"]
+            plot_extracted_image(img_params, analysis_type + "/" + img_params["path"])
+            print("# Analysing {}".format(img_params["path"]))
+            if analysis_type == "golf":
+                peaks_spacing = grid_spacing(img_raw, img_params)
+            elif analysis_type == "spikes":
+                peaks_spacing = angular_spacing(img_raw, img_params)
+            else:
+                peaks_spacing = None
+            img_file_path = img_params["folder_path"] + "/" + img_params["path"]
+            result = {
+                "path": img_file_path,
+                "type": analysis_type,
+                "spacing": peaks_spacing,
+                "unit": img_params["unit"]
+            }
+            try:
+                if len(peaks_spacing) > 0:
+                    avg_spacing = np.average(peaks_spacing)
+                    avg_spacing = round(avg_spacing, 3)
+                else:
+                    avg_spacing = "NONE"
+            except:
+                avg_spacing = "NONE"
+
+            print(" + average ca. {} {}".format(avg_spacing, img_params["unit"]))
+            plot_spacing_hist(peaks_spacing, img_params["unit"],
+                              "average ca. {} {}".format(avg_spacing, img_params["unit"]),
+                              path=analysis_type + "/" + img_params["path"])
+            np.set_printoptions(threshold=np.inf)
+            df = pd.DataFrame.from_dict(result, orient="columns")
+            df.to_csv("result/" + analysis_type + "/" + img_params["path"] + "_analysis.csv", index=False)
+            print(" + Saved .csv, analysis complete!")

@@ -9,7 +9,7 @@ def find_tif_files(folder_dir):
     all_files = os.listdir(sys.path[1] + "/" + folder_dir)
     tif_files = list(filter(lambda f: f.endswith('.tif'), all_files))
     num_images = len(tif_files)
-    print("Found {} tif file(s) in {}!".format(num_images, folder_dir))
+    print("==== Found {} tif file(s) in {}! ====".format(num_images, folder_dir))
 
     images = []
 
