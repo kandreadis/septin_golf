@@ -1,3 +1,8 @@
+"""
+This script contains all visualisation modules used by this project.
+Do not run this script separately, it is executed by analysis.py.
+Author: Konstantinos Andreadis
+"""
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -89,7 +94,7 @@ def plot_angular_profile(img, polar_grid_specs, angular_profile, angles, xscale,
     ax[1].set_ylabel("Intensity (a.u.)")
     ax[1].set_xlabel("Angle (deg)")
     plt.tight_layout()
-    plt.savefig(f"figures/spikes/{path}_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(f"figures/cross_section/{path}_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -114,7 +119,7 @@ def plot_filtered_signal(array, frequencies, spectrum, freq_bounds, filtered_arr
     ax[2].set_xlabel('$\Theta$ (degrees)')
     ax[2].set_ylabel('Amplitude')
     plt.tight_layout()
-    plt.savefig(f"figures/spikes/{path}_filtered_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(f"figures/cross_section/{path}_filtered_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -126,10 +131,10 @@ def plot_grid_profile(img, x, y, xscale, yscale, unit, path):
     ax.imshow(img, alpha=0.5, extent=[x_extent[0], x_extent[1], y_extent[1], y_extent[0]], cmap="RdPu")
     ax.scatter(x * xscale, y * yscale, color="blue", s=5, marker="x")
     ax.set_aspect('equal')
-    ax.set_title("Detected spikes in circular mask")
+    ax.set_title("Detected cross_section in circular mask")
     axis_scalebar(ax=ax, unit=unit, dx=xscale)
     fig.tight_layout()
-    plt.savefig(f"figures/golf/{path}_grid.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(f"figures/surface/{path}_grid.png", dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -137,7 +142,7 @@ def plot_grid_profile(img, x, y, xscale, yscale, unit, path):
 def plot_spacing_hist(array, unit, label, path):
     plt.figure()
     plt.hist(array, label=label)
-    plt.xlabel("spacing {}".format(unit))
+    plt.xlabel("spacing ({})".format(unit))
     plt.ylabel("Count")
     plt.legend()
     plt.savefig(f"figures/{path}_spacings.png", dpi=resolution_dpi, bbox_inches='tight')

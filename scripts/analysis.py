@@ -1,14 +1,65 @@
+"""
+This script contains all analysis and helper modules for this project.
+Do not run this script separately, it is executed by main.py.
+Author: Konstantinos Andreadis
+"""
 import os
 import sys
 
 import cv2
 import numpy as np
 import pandas as pd
+import tifffile as tiff
 from scipy.signal import butter, filtfilt, find_peaks
 
-from scripts.image_import import find_tif_files
 from scripts.visualisation import plot_angular_profile, plot_filtered_signal, plot_grid_profile, plot_spacing_hist, \
     plot_extracted_image, plot_batch_analysis
+
+
+def find_tif_files(folder_dir):
+    all_files = os.listdir(sys.path[1] + "/" + folder_dir)
+    tif_files = list(filter(lambda f: f.endswith('.tif'), all_files))
+    num_images = len(tif_files)
+    print("==== Found {} tif file(s) in {}! ====".format(num_images, folder_dir))
+
+    images = []
+
+    for tif_image_path in tif_files:
+        image_path = sys.path[1] + "/" + folder_dir + "/" + tif_image_path
+        image = tiff.imread(image_path)
+        xscale, yscale, unit = None, None, None
+        with tiff.TiffFile(image_path) as tif:
+            for page in tif.pages:
+                x_scale = page.tags["XResolution"].value
+                y_scale = page.tags["YResolution"].value
+                unit = str(page.tags["ResolutionUnit"].value)[8:]
+                xscale = x_scale[1] / x_scale[0]
+                yscale = y_scale[1] / y_scale[0]
+        dimension = len(image.shape)
+        if dimension == 3:
+            num_z_slices = image.shape[0]
+        else:
+            num_z_slices = 1
+
+        image_stack = np.asarray(image)
+        if unit == "CENTIMETER":
+            xscale *= 10000
+            yscale *= 10000
+            unit = "$\mu$m"
+        if unit == "NONE":
+            unit = "$\mu$m"
+        image_extraction = {
+            "path": tif_image_path,
+            "num_z_slices": num_z_slices,
+            "xscale": xscale,
+            "yscale": yscale,
+            "unit": unit,
+            "image_stack": image_stack,
+            "folder_path": folder_dir,
+            "full_path": folder_dir + "/" + tif_image_path
+        }
+        images.append(image_extraction)
+    return images
 
 
 def threshold_img(img, thresh_low):
@@ -69,8 +120,8 @@ def smooth_filter(array, spacing, low_freq, high_freq):
     return filtered_array, frequencies, spectrum
 
 
-def analyse_angular_peaks(array, cutoff, radius, xscale, yscale):
-    print(" + Detecting spikes...")
+def measure_angular_peaks(array, cutoff, radius, xscale, yscale):
+    print(" + Detecting cross_section...")
     scale = np.sqrt(xscale ** 2 + yscale ** 2)
     peaks_locations, _ = find_peaks(array, height=cutoff)
     try:
@@ -81,7 +132,7 @@ def analyse_angular_peaks(array, cutoff, radius, xscale, yscale):
 
 
 def angular_spacing(img, img_params):
-    print(" + Unfolding golfball...")
+    print(" + Unfolding surfaceball...")
     img = threshold_img(img=img, thresh_low=3)
     polar_grid_specs = {
         "center_xy": [img.shape[0] // 2, img.shape[1] // 2],
@@ -99,15 +150,15 @@ def angular_spacing(img, img_params):
     smoothen_profile = smooth_filter(array=angular_profile, spacing=polar_grid_specs["angles_step"],
                                      high_freq=freq_bounds[1], low_freq=freq_bounds[0])
     filtered_angular_profile, frequencies, spectrum = smoothen_profile
-    peaks_spacing = analyse_angular_peaks(array=filtered_angular_profile, cutoff=3, radius=avg_r,
+    peaks_spacing = measure_angular_peaks(array=filtered_angular_profile, cutoff=3, radius=avg_r,
                                           xscale=img_params["xscale"], yscale=img_params["yscale"])
     plot_filtered_signal(array=angular_profile, frequencies=frequencies, spectrum=spectrum,
                          filtered_array=filtered_angular_profile, path=img_params["path"], freq_bounds=freq_bounds)
     return peaks_spacing
 
 
-def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
-    print(" + Detecting spikes in grid...")
+def measure_grid_peaks(matrix, xscale, yscale, path, unit):
+    print(" + Detecting cross_section in grid...")
     # peaks_locations, _ = find_peaks(matrix.flatten(), height=255)
     # row_indices, col_indices = np.unravel_index(peaks_locations, matrix.shape)
     # peaks_locations = findpeaks(method="mask").fit(matrix)["Xdetect"].astype(int)
@@ -124,7 +175,7 @@ def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
                 x, y = contour.mean(axis=0)[0]
             except:
                 x, y = None, None
-                print(" + Could not find any spikes...")
+                print(" + Could not find any cross_section...")
             peak_indices_x.append(int(x))
             peak_indices_y.append(int(y))
     peak_indices_x = np.asarray(peak_indices_x)
@@ -149,29 +200,29 @@ def analyse_grid_peaks(matrix, xscale, yscale, path, unit):
 
 
 def grid_spacing(img, img_params):
-    print(" + Cropping golfball...")
+    print(" + Cropping surfaceball...")
     img = blur_img(img=img, gaussian_kernel_size=3)
     img = threshold_img(img=img, thresh_low=5)
     radius_cutoff = 0.75 * (img.shape[0] // 2)
     Y, X = np.ogrid[:img.shape[0], :img.shape[1]]
     dist_from_center = np.sqrt((X - img.shape[0] // 2) ** 2 + (Y - img.shape[1] // 2) ** 2)
     img = np.where(dist_from_center <= radius_cutoff, img, 0)
-    peaks_spacing = analyse_grid_peaks(matrix=img, xscale=img_params["xscale"],
-                                       yscale=img_params["yscale"], path=img_params["path"], unit=img_params["unit"])
+    peaks_spacing = measure_grid_peaks(matrix=img, xscale=img_params["xscale"], yscale=img_params["yscale"],
+                                       path=img_params["path"], unit=img_params["unit"])
     return peaks_spacing
 
 
 def run(analysis_type):
     if analysis_type == "visualise_batch_results":
-        golf_folder_dir = "result/{}/".format("golf")
-        golf_dir = os.listdir(sys.path[1] + "/" + golf_folder_dir)
-        golf_csv_files = list(filter(lambda f: f.endswith('.csv'), golf_dir))
-        golf_csv_files = ["result/golf/" + dir for dir in golf_csv_files]
-        spikes_folder_dir = "result/{}/".format("spikes")
-        spikes_dir = os.listdir(sys.path[1] + "/" + spikes_folder_dir)
-        spikes_csv_files = list(filter(lambda f: f.endswith('.csv'), spikes_dir))
-        spikes_csv_files = ["result/spikes/" + dir for dir in spikes_csv_files]
-        all_csv_files = spikes_csv_files + golf_csv_files
+        surface_folder_dir = "result/{}/".format("surface")
+        surface_dir = os.listdir(sys.path[1] + "/" + surface_folder_dir)
+        surface_csv_files = list(filter(lambda f: f.endswith('.csv'), surface_dir))
+        surface_csv_files = ["result/surface/" + dir for dir in surface_csv_files]
+        cross_section_folder_dir = "result/{}/".format("cross_section")
+        cross_section_dir = os.listdir(sys.path[1] + "/" + cross_section_folder_dir)
+        cross_section_csv_files = list(filter(lambda f: f.endswith('.csv'), cross_section_dir))
+        cross_section_csv_files = ["result/cross_section/" + dir for dir in cross_section_csv_files]
+        all_csv_files = cross_section_csv_files + surface_csv_files
         num_images = len(all_csv_files)
         print("==== Found {} .csv file(s)! ====".format(num_images))
         result_dict = {
@@ -199,9 +250,9 @@ def run(analysis_type):
             img_raw = img_params["image_stack"]
             plot_extracted_image(img_params, analysis_type + "/" + img_params["path"])
             print("# Analysing {}".format(img_params["path"]))
-            if analysis_type == "golf":
+            if analysis_type == "surface":
                 peaks_spacing = grid_spacing(img_raw, img_params)
-            elif analysis_type == "spikes":
+            elif analysis_type == "cross_section":
                 peaks_spacing = angular_spacing(img_raw, img_params)
             else:
                 peaks_spacing = None

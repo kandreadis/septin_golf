@@ -1,7 +1,10 @@
+"""
+Main script to be run. Please consult the README about the different analysis_type options!
+Author: Konstantinos Andreadis
+"""
 from scripts.analysis import run
 
 if __name__ == "__main__":
-    # "spikes" or "golf
-    run(analysis_type="spikes")
-    run(analysis_type="golf")
-    # run(analysis_type="visualise_batch_results")
+    run(analysis_type="cross_section")
+    run(analysis_type="surface")
+    run(analysis_type="visualise_batch_results")
