@@ -17,7 +17,7 @@ from scripts.visualisation import plot_angular_profile, plot_filtered_signal, pl
 
 
 def find_tif_files(folder_dir):
-    all_files = os.listdir(sys.path[1] + "/" + folder_dir)
+    all_files = os.listdir(os.path.normpath(sys.path[1] + "/" + folder_dir))
     tif_files = list(filter(lambda f: f.endswith('.tif'), all_files))
     num_images = len(tif_files)
     print("==== Found {} tif file(s) in {}! ====".format(num_images, folder_dir))
@@ -25,7 +25,7 @@ def find_tif_files(folder_dir):
     images = []
 
     for tif_image_path in tif_files:
-        image_path = sys.path[1] + "/" + folder_dir + "/" + tif_image_path
+        image_path = os.path.normpath(sys.path[1] + "/" + folder_dir + "/" + tif_image_path)
         image = tiff.imread(image_path)
         xscale, yscale, unit = None, None, None
         with tiff.TiffFile(image_path) as tif:
@@ -56,7 +56,7 @@ def find_tif_files(folder_dir):
             "unit": unit,
             "image_stack": image_stack,
             "folder_path": folder_dir,
-            "full_path": folder_dir + "/" + tif_image_path
+            "full_path": os.path.normpath(folder_dir + "/" + tif_image_path)
         }
         images.append(image_extraction)
     return images
@@ -192,10 +192,7 @@ def measure_grid_peaks(matrix, xscale, yscale, path, unit):
                 radius = np.sqrt(np.sum(np.square(diff))) * np.sqrt(xscale ** 2 + yscale ** 2)
                 if radius <= 2:
                     radii.append(radius)
-    # radii = np.sqrt(
-    #     (peak_indices_x - matrix.shape[0] // 2) ** 2 + (peak_indices_y - matrix.shape[1] // 2) ** 2) *
     peaks_spacing = np.asarray(radii)
-    # peaks_spacing = peaks_spacing[peaks_spacing > 0.1]                      np.max(peaks_spacing), unit))
     return peaks_spacing
 
 
@@ -214,17 +211,18 @@ def grid_spacing(img, img_params):
 
 def run(analysis_type):
     if analysis_type == "visualise_batch_results":
-        surface_folder_dir = "result/{}/".format("surface")
-        surface_dir = os.listdir(sys.path[1] + "/" + surface_folder_dir)
+        surface_folder_dir = os.path.normpath("result/{}/".format("surface"))
+        surface_dir = os.listdir(os.path.normpath(sys.path[1] + "/" + surface_folder_dir))
         surface_csv_files = list(filter(lambda f: f.endswith('.csv'), surface_dir))
-        surface_csv_files = ["result/surface/" + dir for dir in surface_csv_files]
-        cross_section_folder_dir = "result/{}/".format("cross_section")
-        cross_section_dir = os.listdir(sys.path[1] + "/" + cross_section_folder_dir)
+        surface_csv_files = [os.path.normpath("result/surface/" + dir) for dir in surface_csv_files]
+        cross_section_folder_dir = os.path.normpath("result/{}/".format("cross_section"))
+        cross_section_dir = os.listdir(os.path.normpath(sys.path[1] + "/" + cross_section_folder_dir))
         cross_section_csv_files = list(filter(lambda f: f.endswith('.csv'), cross_section_dir))
-        cross_section_csv_files = ["result/cross_section/" + dir for dir in cross_section_csv_files]
+        cross_section_csv_files = [os.path.normpath("result/cross_section/" + dir) for dir in cross_section_csv_files]
         all_csv_files = cross_section_csv_files + surface_csv_files
         num_images = len(all_csv_files)
         print("==== Found {} .csv file(s)! ====".format(num_images))
+        print(" + Extracting batch results...")
         result_dict = {
             "path": [],
             "type": [],
@@ -232,7 +230,8 @@ def run(analysis_type):
             "unit": []
         }
         for csv_file in all_csv_files:
-            csv_content = pd.read_csv(sys.path[1] + "/" + csv_file, header=0).to_dict(orient="records")
+            csv_content = pd.read_csv(os.path.normpath(sys.path[1] + "/" + csv_file), header=0).to_dict(
+                orient="records")
             if len(csv_content) > 0:
                 for spacing in csv_content:
                     result_dict["path"].append(spacing["path"])
@@ -240,15 +239,16 @@ def run(analysis_type):
                     result_dict["spacing"].append(spacing["spacing"])
                     result_dict["unit"].append(spacing["unit"])
         try:
+            print(" + Saving batch result figure...")
             plot_batch_analysis(data=result_dict)
         except:
             pass
     else:
-        tif_files = find_tif_files("data/" + analysis_type)
+        tif_files = find_tif_files(os.path.normpath("data/" + analysis_type))
         for i in range(len(tif_files)):
             img_params = tif_files[i]
             img_raw = img_params["image_stack"]
-            plot_extracted_image(img_params, analysis_type + "/" + img_params["path"])
+            plot_extracted_image(img_params, os.path.normpath(analysis_type + "/" + img_params["path"]))
             print("# Analysing {}".format(img_params["path"]))
             if analysis_type == "surface":
                 peaks_spacing = grid_spacing(img_raw, img_params)
@@ -256,7 +256,7 @@ def run(analysis_type):
                 peaks_spacing = angular_spacing(img_raw, img_params)
             else:
                 peaks_spacing = None
-            img_file_path = img_params["folder_path"] + "/" + img_params["path"]
+            img_file_path = os.path.normpath(img_params["folder_path"] + "/" + img_params["path"])
             result = {
                 "path": img_file_path,
                 "type": analysis_type,
@@ -275,8 +275,9 @@ def run(analysis_type):
             print(" + average ca. {} {}".format(avg_spacing, img_params["unit"]))
             plot_spacing_hist(peaks_spacing, img_params["unit"],
                               "average ca. {} {}".format(avg_spacing, img_params["unit"]),
-                              path=analysis_type + "/" + img_params["path"])
+                              path=os.path.normpath(analysis_type + "/" + img_params["path"]))
             np.set_printoptions(threshold=np.inf)
             df = pd.DataFrame.from_dict(result, orient="columns")
-            df.to_csv("result/" + analysis_type + "/" + img_params["path"] + "_analysis.csv", index=False)
+            df.to_csv(os.path.normpath("result/" + analysis_type + "/" + img_params["path"] + "_analysis.csv"),
+                      index=False)
             print(" + Saved .csv, analysis complete!")

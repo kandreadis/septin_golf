@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 from matplotlib_scalebar.scalebar import ScaleBar
-
+import os
 resolution_dpi = 200
 
 
@@ -60,7 +60,7 @@ def plot_z_slice(image_path, z_slice, num_z_slices, image_stack, xscale, yscale,
     sm.set_array(image_slice)
     axis_scalebar(ax, dx=xscale, unit=unit)
     plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.04, label="Intensity (a.u.)")
-    plt.savefig(f"figures/{path}.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(os.path.normpath(f"figures/{path}.png"), dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -94,7 +94,7 @@ def plot_angular_profile(img, polar_grid_specs, angular_profile, angles, xscale,
     ax[1].set_ylabel("Intensity (a.u.)")
     ax[1].set_xlabel("Angle (deg)")
     plt.tight_layout()
-    plt.savefig(f"figures/cross_section/{path}_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(os.path.normpath(f"figures/cross_section/{path}_angular-profile.png"), dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -119,7 +119,7 @@ def plot_filtered_signal(array, frequencies, spectrum, freq_bounds, filtered_arr
     ax[2].set_xlabel('$\Theta$ (degrees)')
     ax[2].set_ylabel('Amplitude')
     plt.tight_layout()
-    plt.savefig(f"figures/cross_section/{path}_filtered_angular-profile.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(os.path.normpath(f"figures/cross_section/{path}_filtered_angular-profile.png"), dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -134,7 +134,7 @@ def plot_grid_profile(img, x, y, xscale, yscale, unit, path):
     ax.set_title("Detected cross_section in circular mask")
     axis_scalebar(ax=ax, unit=unit, dx=xscale)
     fig.tight_layout()
-    plt.savefig(f"figures/surface/{path}_grid.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(os.path.normpath(f"figures/surface/{path}_grid.png"), dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -145,7 +145,7 @@ def plot_spacing_hist(array, unit, label, path):
     plt.xlabel("spacing ({})".format(unit))
     plt.ylabel("Count")
     plt.legend()
-    plt.savefig(f"figures/{path}_spacings.png", dpi=resolution_dpi, bbox_inches='tight')
+    plt.savefig(os.path.normpath(f"figures/{path}_spacings.png"), dpi=resolution_dpi, bbox_inches='tight')
     # plt.show()
     plt.close()
 
@@ -158,6 +158,6 @@ def plot_batch_analysis(data):
     ax.set_ylabel("Spike spacing ({})".format(unit))
 
     fig.tight_layout()
-    plt.savefig("figures/batch_analysis/batch_analysis.png", dpi=resolution_dpi, bbox_inches='tight')
-    plt.show()
-    # plt.close()
+    plt.savefig(os.path.normpath("figures/batch_analysis/batch_analysis.png"), dpi=resolution_dpi, bbox_inches='tight')
+    # plt.show()
+    plt.close()

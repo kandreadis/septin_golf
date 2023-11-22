@@ -1,7 +1,0 @@
-"""
-Image
-Author: Konstantinos Andreadis
-"""
-
-
-
